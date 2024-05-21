@@ -1,50 +1,43 @@
-import requests
+import schedule
 import time
+import requests
 import os
 from datetime import datetime
+from pytz import timezone
 from dotenv import load_dotenv, dotenv_values
 
-# Load environment variables
+# Load API key from environment variable
 load_dotenv()
 config = dotenv_values(".env")
 API_KEY = os.getenv("CRONJOB_API_KEY")
-URL = "http://localhost:3000/api/cronjobs"
+URL = "https://app.theringsmethod.com/api/cronjobs"
 
-# Raise an error if the API key is not set
 if not API_KEY:
     raise ValueError("CRONJOB_API_KEY environment variable not set")
 
-# Function to send the POST request to the API
 def send_api_post():
     headers = {"Authorization": API_KEY}
     data = {}  # Empty body
 
     try:
         response = requests.post(URL, headers=headers, json=data)
-        response.raise_for_status()  
+        response.raise_for_status()  # Raise an exception for non-2xx status codes
         print(f"API request successful. Status code: {response.status_code}")
-        if 'data' in response.json():
-            print(f"ID: {response.json()['data'][0]['id']}")
-        else:
-            print("No data returned in the response")
+        print(f"ID: {response.json()['data'][0]['id']}")
     except requests.exceptions.RequestException as e:
         print(f"Error sending API request: {e}")
 
-def main():
- 
-    target_hour = 22
-    target_minute = 0  
+def job():
+    # Define timezone
+    buenos_aires = timezone('America/Argentina/Buenos_Aires')
+    now = datetime.now(buenos_aires)
+    print(f"Executing job at {now.strftime('%Y-%m-%d %H:%M:%S %Z%z')}")
+    send_api_post()
 
-    while True:
-    
-        current_time = datetime.now().strftime("%H:%M") 
-        target_time = f"{target_hour:02d}:{target_minute:02d}"
-
-       
-        if current_time == target_time:
-            send_api_post()
-
-        
+# Schedule the job every day at 10:30 PM Buenos Aires time
+schedule.every().day.at("22:30").do(job)
 
 if __name__ == "__main__":
-    main()  
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
